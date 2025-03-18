@@ -1,0 +1,24 @@
+{
+    "type":"object",
+    "properties": {
+        "customerId": {
+            "type":"integer"
+        },
+        "items": {
+            "type":"array",
+            "items": {
+                "type":"object",
+                "properties": {
+                    "productId": {
+                        "type":"integer"
+                    },
+                    "quantity": {
+                        "type":"integer"
+                    }
+                },
+                "required": ["productId", "quantity"]
+            }
+        }
+    },
+    "required": ["customerId", "items"]
+}
