@@ -1,8 +1,12 @@
 const express = require("express");
 const createHandler = require("azure-function-express").createHandler;
 const orderDAO = require("../common/database/dao/order-dao");
+const { validateApiKey } = require("../common/middleware");
 const utility = require("../common/utility");
 const app = express();
+
+const ORDER_API_KEY = process.env.ORDER_API_KEY;
+app.use(validateApiKey(ORDER_API_KEY));;
 
 app.get("/api/order/list", async(req, res) => {
     const status = req.query.status;
