@@ -1,3 +1,5 @@
+const constants = require("../../constants");
+
 class OrderSummary {
     constructor({ orderId, status, totalCost }) {
         Object.assign(this, { orderId, status, totalCost });
@@ -33,17 +35,17 @@ function mapOrder(rows, type) {
         if (!map.has(row.orderId)) {
             map.set(row.orderId, (() => {
                     switch(type){
-                        case "ORDER_SUMMARY":
+                        case constants.MODEL_CONSTANTS.ORDER_SUMMARY:
                             return new OrderSummary(row);
-                        case "ORDER_LIST":
+                        case constants.MODEL_CONSTANTS.ORDER_LIST:
                             return new Order(row);
-                        case "ORDER_DETAILS":
+                        case constants.MODEL_CONSTANTS.ORDER_DETAILS:
                             return new OrderDetails(row);
                     }
                 })()
             );
         }
-        if (type === "ORDER_DETAILS" && row.productId) {
+        if (type === constants.MODEL_CONSTANTS.ORDER_DETAILS && row.productId) {
             map.get(row.orderId).addItem(new OrderItem(row));
         }
     }
@@ -52,12 +54,12 @@ function mapOrder(rows, type) {
 
 module.exports = {
     mapOrderSummary: (rows) => {
-        return mapOrder(rows, "ORDER_SUMMARY")
+        return mapOrder(rows, constants.MODEL_CONSTANTS.ORDER_SUMMARY)
     },
     mapOrders: (rows) => {
-        return mapOrder(rows, "ORDER_LIST")
+        return mapOrder(rows, constants.MODEL_CONSTANTS.ORDER_LIST)
     },
     mapOrderDetails: (rows) => {
-        return mapOrder(rows, "ORDER_DETAILS")
+        return mapOrder(rows, constants.MODEL_CONSTANTS.ORDER_DETAILS)
     }
 };

@@ -2,7 +2,7 @@ const { connectionPool, sql } = require("../../pool-manager");
 const orderModel = require("../model/order-model");
 
 module.exports = {
-    createOrder: async (customerId, userId, items, context) => {
+    createOrder: async function (customerId, userId, items, context) {
         try {
             const pool = await connectionPool;
             const request = pool.request()
@@ -66,7 +66,7 @@ module.exports = {
             throw err;
         }
     },
-    getOrderList: async (status, startDate, endDate, pageNumber, pageSize, context) => {
+    getOrderList: async function (status, startDate, endDate, pageNumber, pageSize, context) {
         try {
             const pool = await connectionPool;
             const request = pool.request()
@@ -117,7 +117,7 @@ module.exports = {
             throw err;
         }
     },
-    getOrderDetails: async (orderId, context) => {
+    getOrderDetails: async function (orderId, context) {
         try {
             const pool = await connectionPool;
             const request = pool.request()

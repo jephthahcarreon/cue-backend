@@ -6,6 +6,8 @@ const createHandler = require("azure-function-express").createHandler;
 const orderDAO = require("../common/database/dao/order-dao");
 const { validateApiKey } = require("../common/middleware");
 const utility = require("../common/utility");
+const authorization = require("../common/authorization");
+const constants = require("../common/constants");
 const app = express();
 const redis = new Redis();
 const ORDER_API_KEY = process.env.ORDER_API_KEY;
@@ -57,6 +59,8 @@ app.post("/api/order/create", async(req, res) => {
     req.context.log('Create Order');
     try {
         await utility.validator(require("../Order/create-order.schema.json"), req.body, req.context);
+        const allowedPermissions = [constants.PERMISSION_CONSTANTS.CREATE_ORDER];
+        await authorization.authorize(req.body.customerId, allowedPermissions, req.context);
         const orderSummary = await orderDAO.createOrder(req.body.customerId, req.body.userId, req.body.items, req.context);
         req.context.log("Clearing cached Orders data from Redis.");
         await redis.del("orders");

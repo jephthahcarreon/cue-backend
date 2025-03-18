@@ -1,3 +1,5 @@
+const constants = require("../../constants");
+
 class InvoiceSummary {
     constructor({ invoiceId, status, totalCost, dueDate }) {
         Object.assign(this, { invoiceId, status, totalCost, dueDate });
@@ -10,7 +12,7 @@ function mapInvoice(rows, type) {
         if (!map.has(row.invoiceId)) {
             map.set(row.invoiceId, (() => {
                     switch(type){
-                        case "INVOICE_SUMMARY":
+                        case constants.MODEL_CONSTANTS.INVOICE_SUMMARY:
                             return new InvoiceSummary(row);
                     }
                 })()
@@ -22,6 +24,6 @@ function mapInvoice(rows, type) {
 
 module.exports = {
     mapInvoiceSummary: (rows) => {
-        return mapInvoice(rows, "INVOICE_SUMMARY")
+        return mapInvoice(rows, constants.MODEL_CONSTANTS.INVOICE_SUMMARY)
     }
 };

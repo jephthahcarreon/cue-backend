@@ -2,7 +2,7 @@ const { connectionPool, sql } = require("../../pool-manager");
 const invoiceModel = require("../model/invoice-model");
 
 module.exports = {
-    createInvoice: async (orderId, context) => {
+    createInvoice: async function (orderId, context) {
         try {
             const pool = await connectionPool;
             const request = pool.request()
