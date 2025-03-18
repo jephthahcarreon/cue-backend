@@ -21,17 +21,26 @@ module.exports = {
                 BEGIN TRY
                     INSERT INTO dbo.[ORDER] (CUSTOMER_ID, USER_ID, DATE_CREATED, ORDER_STATUS)
                     VALUES (@CUSTOMER_ID, @USER_ID, GETDATE(), 'Pending');
-                    SET @ORDER_ID = SCOPE_IDENTITY();
+                    SET
+                        @ORDER_ID = SCOPE_IDENTITY();
                     INSERT INTO @ORDER_ITEMS (PRODUCT_ID, QUANTITY)
                     VALUES ${productValues};
                     UPDATE OI
-                    SET OI.PRICE = P.PRICE, 
-                        OI.ITEM_TOTAL = OI.QUANTITY * P.PRICE
+                    SET
+                        OI.PRICE = P.PRICE
+                        ,OI.ITEM_TOTAL = OI.QUANTITY * P.PRICE
                     FROM @ORDER_ITEMS OI
                     INNER JOIN dbo.PRODUCT P ON OI.PRODUCT_ID = P.PRODUCT_ID;
                     INSERT INTO dbo.ORDER_DETAILS (ORDER_ID, PRODUCT_ID, QUANTITY, PRICE)
-                    SELECT @ORDER_ID, PRODUCT_ID, QUANTITY, ITEM_TOTAL FROM @ORDER_ITEMS;
-                    SELECT @ORDER_TOTAL = SUM(ITEM_TOTAL) FROM @ORDER_ITEMS;
+                    SELECT 
+                        @ORDER_ID
+                        ,PRODUCT_ID
+                        ,QUANTITY
+                        ,ITEM_TOTAL
+                    FROM @ORDER_ITEMS;
+                    SELECT
+                        @ORDER_TOTAL = SUM(ITEM_TOTAL)
+                    FROM @ORDER_ITEMS;
                     SELECT 
                         O.ORDER_ID orderId
                         ,O.ORDER_STATUS status
@@ -65,7 +74,7 @@ module.exports = {
                 .input("START_DATE", sql.DateTime, startDate ?? null)
                 .input("END_DATE", sql.DateTime, endDate ?? null);
             const query = `
-                WITH OrderList AS (
+                WITH ORDER_LIST AS (
                     SELECT
                         O.ORDER_ID orderId
                         ,O.ORDER_STATUS status
@@ -90,7 +99,7 @@ module.exports = {
                     ,customerId
                     ,totalCost 
                     ,createdDate
-                FROM OrderList
+                FROM ORDER_LIST
                 ORDER BY orderId
                 OFFSET (@OFFSET * @LIMIT) ROWS
                 FETCH NEXT @LIMIT ROWS ONLY;
@@ -112,7 +121,7 @@ module.exports = {
             const request = pool.request()
                 .input("ORDER_ID", sql.Int, orderId);
             const query = `
-                WITH OrderSum AS (
+                WITH ORDER_SUM AS (
                     SELECT
                         O.ORDER_ID
                         ,SUM(OD.PRICE) totalCost
@@ -127,12 +136,12 @@ module.exports = {
                     ,O.CUSTOMER_ID customerId
                     ,OS.totalCost
                     ,O.DATE_CREATED createdDate
-                    ,OD.PRODUCT_ID AS productId
-                    ,OD.QUANTITY AS quantity
-                    ,OD.PRICE AS price
+                    ,OD.PRODUCT_ID productId
+                    ,OD.QUANTITY quantity
+                    ,OD.PRICE price
                 FROM dbo.[ORDER] O
                 INNER JOIN dbo.[ORDER_DETAILS] OD ON O.ORDER_ID = OD.ORDER_ID
-                INNER JOIN OrderSum OS ON O.ORDER_ID = OS.ORDER_ID
+                INNER JOIN ORDER_SUM OS ON O.ORDER_ID = OS.ORDER_ID
                 ORDER BY O.ORDER_ID;
             `;
             const result = await request.query(query).catch(err => {
