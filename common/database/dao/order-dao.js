@@ -8,11 +8,11 @@ module.exports = {
             const request = pool.request()
                 .input("CUSTOMER_ID", sql.Int, customerId)
                 .input("USER_ID", sql.Int, userId);
-            for (const item in items) {
+            items.forEach((item, index) => {
                 request.input(`PRODUCT_ID_${index}`, sql.Int, item.productId);
                 request.input(`PRODUCT_QUANTITY_${index}`, sql.Int, item.quantity)
-            }
-            const productValues = items.map(item => `(PRODUCT_ID_${index}, PRODUCT_QUANTITY_${index})`).join(",");
+            });
+            const productValues = items.map((item, index) => `(@PRODUCT_ID_${index}, @PRODUCT_QUANTITY_${index})`).join(",");
             const query = `
                 BEGIN TRANSACTION;
                 DECLARE @ORDER_ID INT;
@@ -54,10 +54,10 @@ module.exports = {
                     THROW;
                 END CATCH;
             `;
-            const result = request.query(query)
+            const result = await request.query(query)
                 .catch(err => {
                     context.log(err);
-                    throw err
+                    throw err;
                 });
             const orderSummary = orderModel.mapOrderSummary(result.recordset);
             return orderSummary;
@@ -66,13 +66,15 @@ module.exports = {
             throw err;
         }
     },
-    getOrderList: async (status, startDate, endDate) => {
+    getOrderList: async (status, startDate, endDate, pageNumber, pageSize, context) => {
         try {
             const pool = await connectionPool;
             const request = pool.request()
                 .input("STATUS", sql.VarChar(10), status ?? null)
                 .input("START_DATE", sql.DateTime, startDate ?? null)
-                .input("END_DATE", sql.DateTime, endDate ?? null);
+                .input("END_DATE", sql.DateTime, endDate ?? null)
+                .input("OFFSET", sql.Int, pageNumber)
+                .input("LIMIT", sql.Int, pageSize);
             const query = `
                 WITH ORDER_LIST AS (
                     SELECT
@@ -115,7 +117,7 @@ module.exports = {
             throw err;
         }
     },
-    getOrderDetails: async (orderId) => {
+    getOrderDetails: async (orderId, context) => {
         try {
             const pool = await connectionPool;
             const request = pool.request()

@@ -4,6 +4,9 @@
         "customerId": {
             "type":"integer"
         },
+        "userId": {
+            "type":"integer"
+        },
         "items": {
             "type":"array",
             "items": {
@@ -20,5 +23,5 @@
             }
         }
     },
-    "required": ["customerId", "items"]
+    "required": ["customerId", "userId", "items"]
 }

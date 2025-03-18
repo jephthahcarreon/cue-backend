@@ -1,0 +1,11 @@
+{
+    "type":"object",
+    "properties": {
+        "pageSize": {
+            "type":"integer"
+        },
+        "pageNumber": {
+            "type":"integer"
+        }
+    }
+}

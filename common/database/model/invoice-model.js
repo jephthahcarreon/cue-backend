@@ -13,7 +13,7 @@ function mapInvoice(rows, type) {
                         case "INVOICE_SUMMARY":
                             return new InvoiceSummary(row);
                     }
-                })
+                })()
             );
         }
     }

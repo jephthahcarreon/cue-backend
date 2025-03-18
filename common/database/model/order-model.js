@@ -40,7 +40,7 @@ function mapOrder(rows, type) {
                         case "ORDER_DETAILS":
                             return new OrderDetails(row);
                     }
-                })
+                })()
             );
         }
         if (type === "ORDER_DETAILS" && row.productId) {

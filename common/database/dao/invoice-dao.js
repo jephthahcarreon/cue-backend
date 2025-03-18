@@ -6,14 +6,14 @@ module.exports = {
         try {
             const pool = await connectionPool;
             const request = pool.request()
-                input("ORDER_ID", sql.Int, orderId);
+                .input("ORDER_ID", sql.Int, orderId);
             const query = `
                 BEGIN TRANSACTION;
                 DECLARE @INVOICE_ID INT;
                 DECLARE @INVOICE_TOTAL FLOAT;
                 BEGIN TRY
                     INSERT INTO dbo.[INVOICE] (ORDER_ID, INVOICE_DATE, INVOICE_STATUS)
-                    VALUES (@ORDER_ID, GETDATE(), 'Billed');
+                    VALUES (@ORDER_ID, DATEADD(DAY, 30, GETDATE()), 'Billed');
                     SET
                         @INVOICE_ID = SCOPE_IDENTITY();
                     INSERT INTO dbo.[INVOICE_DETAILS] (INVOICE_ID, PRODUCT_ID, QUANTITY, PRICE)
@@ -43,14 +43,13 @@ module.exports = {
                     THROW;
                 END CATCH;
             `;
-            const result = request.query(query)
+            const result = await request.query(query)
                 .catch(err => {
                     context.log(err);
-                    throw err
+                    throw err;
                 });
             const invoiceSummary = invoiceModel.mapInvoiceSummary(result.recordset);
             return invoiceSummary;
-            
         } catch (err) {
             context.log(err);
             throw err;
