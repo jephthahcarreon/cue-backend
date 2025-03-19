@@ -1,0 +1,30 @@
+{
+    "type":"object",
+    "properties": {
+        "orderId": {
+            "type":"integer"
+        },
+        "items": {
+            "type":"array",
+            "items": {
+                "type":"object",
+                "properties": {
+                    "productId": {
+                        "type":"integer"
+                    },
+                    "quantity": {
+                        "type":"integer"
+                    },
+                    "isModified": {
+                        "type":"boolean"
+                    },
+                    "isDeleted": {
+                        "type":"boolean"
+                    }
+                },
+                "required": ["productId", "quantity"]
+            }
+        }
+    },
+    "required": ["orderId", "items"]
+}

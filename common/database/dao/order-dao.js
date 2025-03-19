@@ -66,6 +66,113 @@ module.exports = {
             throw err;
         }
     },
+    updateOrder: async function (orderId, items, context) {
+        try {
+            const pool = await connectionPool;
+            const request = pool.request()
+                .input("ORDER_ID", sql.Int, orderId);
+            modifiedItems = items.filter(item => item.isModified);
+            deletedItems = items.filter(item => item.isDeleted);
+            const productIds = items.map(item => item.productId).join(",");
+            let query = `
+                BEGIN TRANSACTION;
+                DECLARE @ORDER_TOTAL FLOAT;
+                DECLARE @ORDER_ITEMS TABLE (PRODUCT_ID INT, QUANTITY INT, PRODUCT_PRICE FLOAT);
+                BEGIN TRY
+                    INSERT INTO @ORDER_ITEMS
+                    SELECT 
+                        OD.PRODUCT_ID
+                        ,OD.QUANTITY
+                        ,P.PRICE
+                    FROM dbo.[ORDER] O
+                    INNER JOIN dbo.[ORDER_DETAILS] OD ON O.ORDER_ID = OD.ORDER_ID
+                    INNER JOIN dbo.[PRODUCT] P ON OD.PRODUCT_ID = P.PRODUCT_ID
+                    WHERE O.ORDER_ID = @ORDER_ID 
+                    AND OD.PRODUCT_ID IN (${productIds});
+                    UPDATE O
+                    SET
+                        O.DATE_UPDATED = GETDATE()
+                    FROM dbo.[ORDER] O
+                    WHERE O.ORDER_ID = @ORDER_ID;
+            `;
+            if (modifiedItems.length) {
+                query += `
+                        UPDATE OD
+                        SET 
+                            OD.QUANTITY = CASE
+                `;
+                modifiedItems.forEach((item, index) => {
+                    query += `
+                      WHEN OD.PRODUCT_ID = @MODIFIED_PRODUCT_ID_${index} THEN @PRODUCT_QUANTITY_${index}
+                      `;
+                    request.input(`MODIFIED_PRODUCT_ID_${index}`, sql.Int,item.productId);
+                    request.input(`PRODUCT_QUANTITY_${index}`, sql.Int, item.quantity);
+                });
+                query += `
+                            ELSE OD.QUANTITY
+                        END,
+                        OD.PRICE = CASE
+                `;
+                modifiedItems.forEach((item, index) => {
+                    query += `
+                        WHEN OD.PRODUCT_ID = @MODIFIED_PRODUCT_ID_${index} THEN @PRODUCT_QUANTITY_${index} *
+                        (SELECT
+                            PRODUCT_PRICE
+                        FROM @ORDER_ITEMS
+                        WHERE PRODUCT_ID = @MODIFIED_PRODUCT_ID_${index})
+                      `;
+                });
+                query += `
+                            ELSE OD.PRICE
+                        END
+                `;
+            }
+            if (deletedItems.length) {
+                if (modifiedItems.length) {
+                    query += `,
+                        OD.IS_DELETED = CASE
+                    `;
+                } else {
+                    query += `
+                            UPDATE OD
+                            SET 
+                                OD.IS_DELETED = CASE
+                    `;
+                }
+                deletedItems.forEach((item, index) => {
+                    query += `
+                      WHEN OD.PRODUCT_ID = @DELETED_PRODUCT_ID_${index} THEN @IS_DELETED_${index}
+                      `;
+                    request.input(`DELETED_PRODUCT_ID_${index}`, sql.Int, item.productId);
+                    request.input(`IS_DELETED_${index}`, sql.Bit, 1);
+                });
+                query += `
+                            ELSE OD.IS_DELETED
+                        END
+                `;
+            }
+            query += `
+                    FROM dbo.[ORDER_DETAILS] OD
+                    WHERE OD.ORDER_ID = @ORDER_ID
+                    AND OD.PRODUCT_ID IN (${productIds});
+                    COMMIT TRANSACTION;
+                END TRY
+                BEGIN CATCH
+                    ROLLBACK TRANSACTION;
+                    THROW;
+                END CATCH;
+            `;
+            const result = await request.query(query).catch(err => {
+                context.log(err);
+                throw err;
+            });
+            // const orderSummary = orderModel.mapOrderSummary(result.recordset);
+            // return orderSummary;
+        } catch (err) {
+            context.log(err);
+            throw err;
+        }
+    },
     getOrderList: async function (status, startDate, endDate, pageNumber, pageSize, context) {
         try {
             const pool = await connectionPool;
@@ -89,6 +196,7 @@ module.exports = {
                         (@STATUS IS NULL OR O.ORDER_STATUS = @STATUS)
                         AND (@START_DATE IS NULL OR O.DATE_CREATED >= @START_DATE)
                         AND (@END_DATE IS NULL OR O.DATE_CREATED <= @END_DATE)
+                        AND OD.IS_DELETED = 0
                     GROUP BY
                         O.ORDER_ID
                         ,ORDER_STATUS
@@ -130,6 +238,7 @@ module.exports = {
                     FROM dbo.[ORDER] O
                     INNER JOIN dbo.[ORDER_DETAILS] OD ON O.ORDER_ID = OD.ORDER_ID
                     WHERE O.ORDER_ID = @ORDER_ID
+                    AND OD.IS_DELETED = 0
                     GROUP BY O.ORDER_ID
                 )
                 SELECT
@@ -141,9 +250,11 @@ module.exports = {
                     ,OD.PRODUCT_ID productId
                     ,OD.QUANTITY quantity
                     ,OD.PRICE price
+	                ,OD.IS_DELETED isDeleted
                 FROM dbo.[ORDER] O
                 INNER JOIN dbo.[ORDER_DETAILS] OD ON O.ORDER_ID = OD.ORDER_ID
                 INNER JOIN ORDER_SUM OS ON O.ORDER_ID = OS.ORDER_ID
+                WHERE OD.IS_DELETED = 0
                 ORDER BY O.ORDER_ID;
             `;
             const result = await request.query(query).catch(err => {

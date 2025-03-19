@@ -22,13 +22,15 @@ app.use(helmet());
 app.use(validateApiKey(ORDER_API_KEY));
 
 app.get("/api/order/list", async(req, res) => {
-    const cacheKey = "orders";
-    const cachedData = await redis.get(cacheKey);
-    if (cachedData) {
+    const cacheDataKey = "orders";
+    const cachePaginationKey = "orderPagination";
+    const cachedData = await redis.get(cacheDataKey);
+    const cachedPagination = await redis.get(cachePaginationKey);
+    const paginationOptions = JSON.stringify({ pageNumber: req.body.pageNumber, pageSize: req.body.pageSize});
+    if (cachedData && cachedPagination === paginationOptions) {
         req.context.log("Returning cached Orders data from Redis.");
         return res.status(200).json(JSON.parse(cachedData));
     }
-
     const status = req.query.status;
     const startDate = req.query.startDate;
     const endDate = req.query.endDate;
@@ -37,7 +39,8 @@ app.get("/api/order/list", async(req, res) => {
         await utility.validator(require("../Order/get-order-list.schema.json"), req.body, req.context);
         const orders = await orderDAO.getOrderList(status, startDate, endDate, req.body.pageNumber, req.body.pageSize, req.context);
         req.context.log("Caching Orders data to Redis.");
-        await redis.set(cacheKey, JSON.stringify(orders), "EX", 300);
+        await redis.set(cacheDataKey, JSON.stringify(orders), "EX", 300);
+        await redis.set(cachePaginationKey, JSON.stringify({ pageNumber: req.body.pageNumber, pageSize: req.body.pageSize}), "EX", 300);
         res.status(200).json(orders);
     } catch (err) {
         utility.handleErrorResponse(err, res, req.context);
@@ -65,6 +68,17 @@ app.post("/api/order/create", async(req, res) => {
         req.context.log("Clearing cached Orders data from Redis.");
         await redis.del("orders");
         res.status(200).json(orderSummary);
+    } catch (err) {
+        utility.handleErrorResponse(err, res, req.context);
+    }
+});
+
+app.post("/api/order/update", async(req, res) => {
+    req.context.log('Update Order');
+    try {
+        await utility.validator(require("../Order/update-order.schema.json"), req.body, req.context);
+        await orderDAO.updateOrder(req.body.orderId, req.body.items, req.context);
+        res.status(200).json({message: "Update Successful."});
     } catch (err) {
         utility.handleErrorResponse(err, res, req.context);
     }
