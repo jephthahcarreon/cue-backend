@@ -44,7 +44,7 @@ app.get("/api/order/list", async(req, res) => {
         req.context.log("Caching Orders data to Redis.");
         await redis.set(cacheDataKey, JSON.stringify(orders), "EX", 300);
         await redis.set(cachePaginationKey, JSON.stringify({ pageNumber: req.body.pageNumber, pageSize: req.body.pageSize}), "EX", 300);
-        await redis.set(cacheDataKey, JSON.stringify({ status: status, startDate: startDate, endDate: endDate}), "EX", 300);
+        await redis.set(cacheFilterKey, JSON.stringify({ status: status, startDate: startDate, endDate: endDate}), "EX", 300);
         res.status(200).json(orders);
     } catch (err) {
         utility.handleErrorResponse(err, res, req.context);
