@@ -22,18 +22,21 @@ app.use(helmet());
 app.use(validateApiKey(ORDER_API_KEY));
 
 app.get("/api/order/list", async(req, res) => {
-    const cacheDataKey = "orders";
-    const cachePaginationKey = "orderPagination";
-    const cachedData = await redis.get(cacheDataKey);
-    const cachedPagination = await redis.get(cachePaginationKey);
-    const paginationOptions = JSON.stringify({ pageNumber: req.body.pageNumber, pageSize: req.body.pageSize});
-    if (cachedData && cachedPagination === paginationOptions) {
-        req.context.log("Returning cached Orders data from Redis.");
-        return res.status(200).json(JSON.parse(cachedData));
-    }
     const status = req.query.status;
     const startDate = req.query.startDate;
     const endDate = req.query.endDate;
+    const filterOptions = JSON.stringify({status: status, startDate: startDate, endDate: endDate})
+    const cacheDataKey = "orders";
+    const cachePaginationKey = "orderPagination";
+    const cacheFilterKey = "filterPagination";
+    const cachedData = await redis.get(cacheDataKey);
+    const cachedPagination = await redis.get(cachePaginationKey);
+    const cachedFilter = await redis.get(cacheFilterKey);
+    const paginationOptions = JSON.stringify({ pageNumber: req.body.pageNumber, pageSize: req.body.pageSize});
+    if (cachedData && cachedPagination === paginationOptions && cachedFilter === filterOptions) {
+        req.context.log("Returning cached Orders data from Redis.");
+        return res.status(200).json(JSON.parse(cachedData));
+    }
     req.context.log(`Get Order List: Status: ${status}, Start Date: ${startDate}, End Date: ${endDate}`);
     try {
         await utility.validator(require("../Order/get-order-list.schema.json"), req.body, req.context);
@@ -41,6 +44,7 @@ app.get("/api/order/list", async(req, res) => {
         req.context.log("Caching Orders data to Redis.");
         await redis.set(cacheDataKey, JSON.stringify(orders), "EX", 300);
         await redis.set(cachePaginationKey, JSON.stringify({ pageNumber: req.body.pageNumber, pageSize: req.body.pageSize}), "EX", 300);
+        await redis.set(cacheDataKey, JSON.stringify({ status: status, startDate: startDate, endDate: endDate}), "EX", 300);
         res.status(200).json(orders);
     } catch (err) {
         utility.handleErrorResponse(err, res, req.context);
