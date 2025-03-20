@@ -1,4 +1,5 @@
 const { connectionPool, sql } = require("../../pool-manager");
+const utility = require("../../utility");
 const invoiceModel = require("../model/invoice-model");
 
 module.exports = {
@@ -10,37 +11,54 @@ module.exports = {
             const query = `
                 BEGIN TRANSACTION;
                 DECLARE @INVOICE_ID INT;
-                DECLARE @INVOICE_TOTAL FLOAT;
                 BEGIN TRY
-                    INSERT INTO dbo.[INVOICE] (ORDER_ID, INVOICE_DATE, INVOICE_STATUS)
-                    VALUES (@ORDER_ID, DATEADD(DAY, 30, GETDATE()), 'Billed');
-                    SET
-                        @INVOICE_ID = SCOPE_IDENTITY();
-                    INSERT INTO dbo.[INVOICE_DETAILS] (INVOICE_ID, PRODUCT_ID, QUANTITY, PRICE)
                     SELECT
-                        @INVOICE_ID
+                        O.ORDER_ID
+                        ,O.ORDER_STATUS
                         ,OD.PRODUCT_ID
                         ,OD.QUANTITY
                         ,OD.PRICE
+                    INTO #FULFILLED_ORDER
                     FROM dbo.[ORDER] O
                     INNER JOIN dbo.[ORDER_DETAILS] OD ON O.ORDER_ID = OD.ORDER_ID
-                    WHERE O.ORDER_ID = @ORDER_ID;
-                    SELECT 
-                        @INVOICE_TOTAL = SUM(PRICE)
-                    FROM dbo.[INVOICE_DETAILS]
-                    WHERE INVOICE_ID = @INVOICE_ID;
-                    SELECT 
-                        I.INVOICE_ID invoiceId
-                        ,I.INVOICE_STATUS status
-                        ,I.INVOICE_DATE dueDate
-                        ,@INVOICE_TOTAL totalCost
-                    FROM dbo.[INVOICE] I
-                    WHERE I.INVOICE_ID = @INVOICE_ID;
-                    COMMIT TRANSACTION;
+                    WHERE O.ORDER_ID = @ORDER_ID
+                    AND O.ORDER_STATUS = 'Fulfilled';
+                    IF EXISTS (SELECT 1 FROM #FULFILLED_ORDER)
+                    BEGIN
+                        INSERT INTO dbo.[INVOICE] (ORDER_ID, INVOICE_DATE, INVOICE_STATUS)
+                        VALUES (@ORDER_ID, DATEADD(DAY, 30, GETDATE()), 'Billed');
+                        SET
+                            @INVOICE_ID = SCOPE_IDENTITY();
+                        INSERT INTO dbo.[INVOICE_DETAILS] (INVOICE_ID, PRODUCT_ID, QUANTITY, PRICE)
+                        SELECT
+                            @INVOICE_ID
+                            ,PRODUCT_ID
+                            ,QUANTITY
+                            ,PRICE
+                        FROM #FULFILLED_ORDER
+                        SELECT 
+                            I.INVOICE_ID invoiceId
+                            ,I.INVOICE_STATUS status
+                            ,I.INVOICE_DATE dueDate
+                            ,SUM(ID.PRICE) totalCost
+                        FROM dbo.[INVOICE] I
+                        INNER JOIN dbo.[INVOICE_DETAILS] ID ON I.INVOICE_ID = ID.INVOICE_ID
+                        WHERE I.INVOICE_ID = @INVOICE_ID
+                        GROUP BY I.INVOICE_ID, I.INVOICE_STATUS, I.INVOICE_DATE;
+                        COMMIT TRANSACTION;
+                    END
+                    ELSE
+                    BEGIN
+                        ROLLBACK TRANSACTION;
+                        THROW 50001, 'Order is not fulfilled.', 1;
+                    END
                 END TRY
                 BEGIN CATCH
                     ROLLBACK TRANSACTION;
-                    THROW;
+                    DECLARE @ERROR_MESSAGE NVARCHAR(4000) = ERROR_MESSAGE();
+                    DECLARE @ERROR_SEVERITY INT = ERROR_SEVERITY();
+                    DECLARE @ERROR_STATE INT = ERROR_STATE();
+                    RAISERROR (@ERROR_MESSAGE, @ERROR_SEVERITY, @ERROR_STATE);
                 END CATCH;
             `;
             const result = await request.query(query)
@@ -52,7 +70,10 @@ module.exports = {
             return invoiceSummary;
         } catch (err) {
             context.log(err);
-            throw err;
+            if (err.number >= 5000)
+                throw new utility.createErrorObject(err, 400);
+            else
+                throw err;
         }
     }
 }

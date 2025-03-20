@@ -15,14 +15,11 @@
                     "quantity": {
                         "type":"integer"
                     },
-                    "isModified": {
-                        "type":"boolean"
-                    },
                     "isDeleted": {
                         "type":"boolean"
                     }
                 },
-                "required": ["productId", "quantity"]
+                "required": ["productId", "quantity", "isDeleted"]
             }
         }
     },

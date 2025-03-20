@@ -77,8 +77,19 @@ app.post("/api/order/update", async(req, res) => {
     req.context.log('Update Order');
     try {
         await utility.validator(require("../Order/update-order.schema.json"), req.body, req.context);
-        await orderDAO.updateOrder(req.body.orderId, req.body.items, req.context);
-        res.status(200).json({message: "Update Successful."});
+        const orderSummary = await orderDAO.updateOrder(req.body.orderId, req.body.items, req.context);
+        res.status(200).json(orderSummary);
+    } catch (err) {
+        utility.handleErrorResponse(err, res, req.context);
+    }
+});
+
+app.post("/api/order/fulfill", async(req, res) => {
+    req.context.log('Fulfill Order');
+    try {
+        await utility.validator(require("../Order/fulfill-order.schema.json"), req.body, req.context);
+        const orderSummary = await orderDAO.fulfullOrder(req.body.orderId, req.context);
+        res.status(200).json(orderSummary);
     } catch (err) {
         utility.handleErrorResponse(err, res, req.context);
     }
